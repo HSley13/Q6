@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ClusterChart } from "@/components/ClusterChart";
 import { LogoutButton } from "@/components/LogoutButton";
 import { groupByCluster } from "@/lib/aggregate";
 import { createClient } from "@/lib/supabase/server";
@@ -36,7 +37,7 @@ export default async function DashboardPage() {
         </p>
       )}
 
-      {clustered.length > 0 && <p className="text-sm text-slate-600">{clustered.length} clustered entities loaded.</p>}
+      {clustered.length > 0 && <ClusterChart data={clustered} />}
     </main>
   );
 }
