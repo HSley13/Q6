@@ -30,12 +30,15 @@ backend/
   sql/schema.sql               serp_entities table + RLS policy
   pipeline.py                  CLI wiring the above end to end
 frontend/
-  src/pages/Login.tsx, Dashboard.tsx   Supabase Auth login + protected dashboard
+  src/pages/Login.tsx, Dashboard.tsx    Supabase Auth login + protected dashboard
   src/components/ClusterChart.tsx      entities-by-cluster bar chart (recharts)
+  src/components/ArticleBreakdown.tsx  per-article entity + count table
   src/components/ProtectedRoute.tsx    client-side route guard (redirects to /login)
   src/lib/supabaseClient.ts            Supabase JS client
   src/lib/useAuth.tsx                  auth session context/hook
   vercel.json                          SPA rewrite (all routes -> index.html)
+appscript/
+  Code.gs                       standalone Google Sheets/Apps Script version (SerpApi + Gemini -> Sheet)
 ```
 
 ## Backend setup
@@ -95,12 +98,36 @@ npm run dev
 ```
 
 Visit `http://localhost:5173` — you'll be redirected to `/login`, then to `/dashboard` after
-signing in, where entity clusters for any keyword you've run through the backend pipeline appear
-as a bar chart grouped by cluster.
+signing in. Two views of the same data: **By topic cluster** (bar chart grouped by cluster) and
+**By article** (per-article table — which of the top-10 articles each entity came from, its count
+in that specific article, and each article's unique-entity / total-mention totals).
 
 Route protection is client-side (`ProtectedRoute` checks the Supabase session and redirects);
 the actual data access control is enforced by Postgres RLS regardless of what the UI does, so this
 is not a weaker security model than a server-rendered guard, just a differently-shaped one.
+
+## Google Sheets / Apps Script version
+
+`appscript/Code.gs` is a self-contained alternative that needs none of the above — no Python,
+no Supabase, no Vercel. Same keyword-driven SERP → entity → topic pipeline, but it calls the
+Gemini API for entity extraction + topic labeling (instead of spaCy + sentence-transformers,
+which can't run inside Apps Script) and writes results straight into the Sheet.
+
+Setup:
+
+1. Open a Google Sheet → Extensions → Apps Script → paste in `appscript/Code.gs`.
+2. Get a Gemini API key at https://aistudio.google.com/apikey (free tier, no GCP billing setup
+   needed) and reuse your existing SerpApi key.
+3. Reload the Sheet, use the new menu **SERP Entity Analysis → Set API Keys**, enter both.
+4. **SERP Entity Analysis → Run Analysis**, enter a keyword when prompted (e.g. `4G 吃到飽`).
+
+Writes three tabs: **Results** (rank, article, entity, topic, count-in-that-article — one row per
+entity per article), **Per-Article Summary** (unique-entity / total-mention count per article),
+and **Run Info** (keyword + timestamp). "Login" for this version is Google's own Sheet-sharing
+permissions — share the Sheet with specific people rather than "Anyone with the link".
+
+I can't execute Apps Script myself to test it the way I ran the Python pipeline locally — test it
+in the Apps Script editor and send me any error from the execution log if something breaks.
 
 ## Deployment
 
