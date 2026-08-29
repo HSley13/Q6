@@ -11,11 +11,11 @@ venv/
 .env.local
 *.env
 
-# Node / Next.js
+# Node / Vite
 frontend/node_modules/
-frontend/.next/
-frontend/out/
+frontend/dist/
 frontend/.vercel/
+frontend/*.tsbuildinfo
 npm-debug.log*
 
 # OS

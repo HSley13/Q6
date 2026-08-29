@@ -1,12 +1,9 @@
-"use client";
-
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
 
 export function LoginForm() {
-  const router = useRouter();
-  const supabase = createClient();
+  const navigate = useNavigate();
 
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
   const [email, setEmail] = useState("");
@@ -14,7 +11,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -31,8 +28,7 @@ export function LoginForm() {
       return;
     }
 
-    router.refresh();
-    router.push("/dashboard");
+    navigate("/dashboard");
   }
 
   return (

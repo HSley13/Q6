@@ -1,0 +1,37 @@
+name: Run SERP entity pipeline
+
+on:
+  schedule:
+    # 03:00 UTC daily (11:00 Taipei time)
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      keyword:
+        description: "Search keyword"
+        required: false
+        default: "4G 吃到飽"
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          python -m spacy download zh_core_web_sm
+
+      - name: Run pipeline
+        env:
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python -m backend.pipeline --keyword "${{ github.event.inputs.keyword || '4G 吃到飽' }}"

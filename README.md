@@ -5,7 +5,7 @@ SERP scraping → entity extraction → topic clustering → Supabase storage �
 Given a keyword (e.g. `4G 吃到飽`), this project pulls Google's top organic results via SerpApi,
 extracts named entities from each article with spaCy's Chinese NER model, clusters those entities
 into topics with sentence-transformers + KMeans, stores the results in Supabase, and displays them
-in a login-gated Next.js dashboard.
+in a login-gated React (Vite) dashboard.
 
 ## Architecture
 
@@ -15,7 +15,7 @@ SerpApi (SERP scraping)
     -> spaCy zh NER (per-article entity counts)
       -> sentence-transformers embeddings -> KMeans clustering
         -> Supabase (serp_entities table)
-          -> Next.js + Supabase Auth dashboard (chart by cluster)
+          -> React (Vite) + Supabase Auth dashboard (chart by cluster)
 ```
 
 ## Repo layout
@@ -30,10 +30,12 @@ backend/
   sql/schema.sql               serp_entities table + RLS policy
   pipeline.py                  CLI wiring the above end to end
 frontend/
-  app/login, app/dashboard     Supabase Auth login + protected dashboard
-  components/ClusterChart.tsx  entities-by-cluster bar chart (recharts)
-  lib/supabase/                browser/server Supabase clients
-  middleware.ts                session refresh + dashboard route guard
+  src/pages/Login.tsx, Dashboard.tsx   Supabase Auth login + protected dashboard
+  src/components/ClusterChart.tsx      entities-by-cluster bar chart (recharts)
+  src/components/ProtectedRoute.tsx    client-side route guard (redirects to /login)
+  src/lib/supabaseClient.ts            Supabase JS client
+  src/lib/useAuth.tsx                  auth session context/hook
+  vercel.json                          SPA rewrite (all routes -> index.html)
 ```
 
 ## Backend setup
@@ -82,8 +84,8 @@ npm install
 
 Copy `.env.example`'s frontend vars into `frontend/.env.local`:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
 Create a login user (Supabase dashboard → Authentication → Users → Add user, or sign up from
 the app's `/login` page — it defaults to email/password sign-up).
@@ -92,16 +94,24 @@ the app's `/login` page — it defaults to email/password sign-up).
 npm run dev
 ```
 
-Visit `http://localhost:3000` — you'll be redirected to `/login`, then to `/dashboard` after
+Visit `http://localhost:5173` — you'll be redirected to `/login`, then to `/dashboard` after
 signing in, where entity clusters for any keyword you've run through the backend pipeline appear
 as a bar chart grouped by cluster.
 
+Route protection is client-side (`ProtectedRoute` checks the Supabase session and redirects);
+the actual data access control is enforced by Postgres RLS regardless of what the UI does, so this
+is not a weaker security model than a server-rendered guard, just a differently-shaped one.
+
 ## Deployment
 
-- **Backend**: run `backend/pipeline.py` wherever convenient (local cron, a scheduled GitHub Action,
-  etc.) — it's a one-shot CLI, not a long-running service.
-- **Frontend**: push `frontend/` to Vercel (set the project root to `frontend/` if deploying the
-  whole repo), and set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` as Vercel
-  environment variables.
+- **Backend**: `.github/workflows/serp-pipeline.yml` runs the pipeline on a daily cron (03:00 UTC)
+  and can also be triggered manually from the Actions tab with a custom `keyword` input. Add these
+  as repo secrets (Settings → Secrets and variables → Actions) for it to work: `SERPAPI_API_KEY`,
+  `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+- **Frontend**: it's a static SPA (Vite build output in `frontend/dist`). Push `frontend/` to Vercel
+  (set the project root to `frontend/` if deploying the whole repo, build command `npm run build`,
+  output directory `dist`), and set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` as Vercel
+  environment variables. `frontend/vercel.json` rewrites all paths to `index.html` so client-side
+  routes (`/login`, `/dashboard`) survive a hard refresh.
 - **Supabase**: RLS on `serp_entities` only grants `select` to `authenticated` users — writes always
   go through the service-role key from the backend, never from the browser.
