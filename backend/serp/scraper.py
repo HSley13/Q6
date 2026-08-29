@@ -23,7 +23,11 @@ def fetch_serp_results(
     `num_results`.
     """
     params = {
-        "engine": "google",
+        # "google" (the full engine) returns a 500 Internal Server Error from
+        # SerpApi for some CJK-text queries (reproduced directly against their
+        # API, independent of this codebase); "google_light" returns the same
+        # organic_results shape without tripping it.
+        "engine": "google_light",
         "q": keyword,
         "google_domain": "google.com.tw",
         "gl": gl,
