@@ -13,3 +13,16 @@ export type ClusteredEntity = {
   entity: string;
   count: number;
 };
+
+export type ArticleEntity = {
+  entity: string;
+  count: number;
+  cluster_id: number | null;
+};
+
+export type ArticleBreakdown = {
+  url: string;
+  entities: ArticleEntity[];
+  uniqueEntityCount: number;
+  totalMentionCount: number;
+};

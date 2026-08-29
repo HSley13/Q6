@@ -3,9 +3,14 @@ import logging
 
 import requests
 import trafilatura
+import urllib3
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
+
+# The verify=False retry path below is expected to trip this on every use;
+# the warning would otherwise fire once per fallback and drown out real logs.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 _HEADERS = {
     "User-Agent": (
@@ -22,7 +27,17 @@ def fetch_article_text(url: str, timeout: int = 10) -> str:
     down a multi-article pipeline run. Returns "" on any failure.
     """
     try:
-        response = requests.get(url, headers=_HEADERS, timeout=timeout)
+        try:
+            response = requests.get(url, headers=_HEADERS, timeout=timeout)
+        except requests.exceptions.SSLError:
+            # A handful of real SERP results (e.g. some TW telecom sites) serve
+            # a misconfigured cert chain that strict verification rejects even
+            # though browsers tolerate it. This is a read of public marketing
+            # copy, not a channel carrying credentials, so retrying once
+            # without verification is a reasonable tradeoff to avoid losing
+            # the article entirely.
+            logger.warning("SSL verification failed for %s, retrying without it", url)
+            response = requests.get(url, headers=_HEADERS, timeout=timeout, verify=False)
         response.raise_for_status()
         # Raw bytes, not `.text` -- when a page's Content-Type header omits a
         # charset, requests falls back to decoding as ISO-8859-1 (the HTTP
