@@ -24,7 +24,12 @@ def fetch_article_text(url: str, timeout: int = 10) -> str:
     try:
         response = requests.get(url, headers=_HEADERS, timeout=timeout)
         response.raise_for_status()
-        html = response.text
+        # Raw bytes, not `.text` -- when a page's Content-Type header omits a
+        # charset, requests falls back to decoding as ISO-8859-1 (the HTTP
+        # default), which mangles UTF-8 multi-byte text (e.g. Chinese) into
+        # mojibake. trafilatura/BeautifulSoup both sniff encoding from the
+        # bytes themselves and get it right.
+        html = response.content
     except requests.RequestException as exc:
         logger.warning("Failed to fetch %s: %s", url, exc)
         return ""
